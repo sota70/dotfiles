@@ -9,6 +9,10 @@ require("config.lazy")
 require("config.mappings")
 
 vim.cmd.colorscheme "vim"
+vim.api.nvim_set_hl(0, "Pmenu", { bg = "#282828", fg = "#ebdbb2" })
+vim.api.nvim_set_hl(0, "PmenuSel", { bg = "#458588", fg = "#282828" })
+vim.api.nvim_set_hl(0, "PmenuSbar", { bg = "#3c3836" })
+vim.api.nvim_set_hl(0, "PmenuThumb", { bg = "#665c54" })
 
 -- show only filename in tab
 function MyTabLine()
