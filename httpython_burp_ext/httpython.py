@@ -256,17 +256,17 @@ def _generate_function(item):
 
     return_expr = ", ".join(_rule_code(r) for r in item.rules) or "res"
 
-    comment = item.comment.strip()
-    if not comment:
-        comment = "base_url に %s %s を送信する" % (item.method.upper(), path)
+    comment = _as_str(item.comment).strip()
 
-    lines = [
-        "# " + comment,
-        "def %s(%s):" % (item.func_name, ", ".join(args)),
-        "    res = " + call,
-        "    return " + return_expr,
-    ]
-    return "\n".join(lines)
+    lines = []
+    if comment:
+        lines.append(u"# " + comment)
+    lines.extend([
+        u"def %s(%s):" % (item.func_name, u", ".join(args)),
+        u"    res = " + call,
+        u"    return " + return_expr,
+    ])
+    return u"\n".join(lines)
 
 
 def generate_script(requests_list, proxy_url):
@@ -382,7 +382,7 @@ class BurpExtender(IBurpExtender, ITab, IContextMenuFactory):
         self.requests = []          # [ReqItem]
         self.current = -1           # 選択中インデックス
         self._suppress = False      # プログラム的なテーブル更新中の選択イベント抑止
-        self._recent = set()        # 同一操作内で取り込み済みメッセージの識別子(二重取り込み防止)
+        self._recent = set()        # 同一操作内で取り込み済みリクエストの署名(二重取り込み防止)
 
         self._build_ui()
         callbacks.customizeUiComponent(self.root)
@@ -737,17 +737,35 @@ class BurpExtender(IBurpExtender, ITab, IContextMenuFactory):
         self._set_status(u"保存しました: " + path)
 
     # --------------------------------------------- リクエスト取り込み
+    def _request_signature(self, messageInfo):
+        """メッセージのリクエスト部分から重複除外用の署名を作る。
+
+        request と response を内包する別オブジェクトでも、同一メッセージなら
+        リクエストバイト列は一致するため署名も一致する。取得に失敗した場合は
+        オブジェクト同一性へフォールバックする。
+        """
+        try:
+            req = messageInfo.getRequest()
+            if req is not None:
+                return ("req", self._helpers.bytesToString(req))
+        except Exception:
+            pass
+        return ("id", java.lang.System.identityHashCode(messageInfo))
+
     def _add_requests(self, msgs):
         """選択メッセージ群を一括で取り込む。
 
-        Proxy history の重複返却や ActionListener の二重発火により同一メッセージが
-        重複して渡ることがあるため、同一操作内で取り込み済みのオブジェクトを
-        identityHashCode で除外する。除外集合は次の EDT サイクルでクリアするので、
-        ユーザが後から改めて同じ内容を送る操作は妨げない。
+        getSelectedMessages() が返す IHttpRequestResponse は request と response を
+        内包しており、Repeater 等では request 側・response 側の別オブジェクトとして
+        同一メッセージが重複して返ることがある。加えて Proxy history の重複返却や
+        ActionListener の二重発火もあるため、同一操作内で取り込み済みのメッセージを
+        「リクエスト内容の署名」で除外する。オブジェクト同一性(identityHashCode)では
+        別オブジェクトの重複を取りこぼすので採用しない。除外集合は次の EDT サイクルで
+        クリアするので、ユーザが後から改めて同じ内容を送る操作は妨げない。
         """
         fresh = []
         for m in msgs:
-            h = java.lang.System.identityHashCode(m)
+            h = self._request_signature(m)
             if h in self._recent:
                 continue
             self._recent.add(h)
