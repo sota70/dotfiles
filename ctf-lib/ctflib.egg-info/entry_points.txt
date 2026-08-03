@@ -1,0 +1,2 @@
+[console_scripts]
+ctflib = ctflib.__main__:main
