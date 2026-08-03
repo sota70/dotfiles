@@ -145,7 +145,7 @@ return {
         vim.keymap.set("n", "gD", jump_to_first(vim.lsp.buf.declaration), opts)
         vim.keymap.set("n", "gi", jump_to_first(vim.lsp.buf.implementation), opts)
         vim.keymap.set("n", "gr", jump_to_first(vim.lsp.buf.references), opts)
-        vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+        vim.keymap.set("n", "<leader>k", vim.lsp.buf.hover, opts)
       end
 
       for _, server in ipairs(servers) do
