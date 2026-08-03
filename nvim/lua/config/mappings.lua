@@ -1,7 +1,7 @@
 vim.keymap.set("n", "<C-h>", "<cmd>Neotree action=focus<CR>")
 vim.keymap.set("n", "<C-l>", "<cmd>wincmd p<CR>")
-vim.keymap.set("n", "<S-h>", "<cmd>tabprev<CR>")
-vim.keymap.set("n", "<S-l>", "<cmd>tabnext<CR>")
+vim.keymap.set("n", "<S-k>", "<cmd>tabprev<CR>")
+vim.keymap.set("n", "<S-j>", "<cmd>tabnext<CR>")
 
 local builtin = require("telescope.builtin")
 vim.keymap.set('n', '<leader>ff', builtin.find_files, { desc = 'Telescope find files' })
