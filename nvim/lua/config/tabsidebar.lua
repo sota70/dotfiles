@@ -6,6 +6,7 @@ local ns = vim.api.nvim_create_namespace("tab_sidebar")
 
 local buf = nil
 local busy = false
+local line_tab = {} -- サイドバーの行番号 -> tabpage (折り返しで 1 タブが複数行になる)
 
 M.enabled = true
 
@@ -41,15 +42,24 @@ local function is_float(win)
   return vim.api.nvim_win_get_config(win).relative ~= ""
 end
 
-local function truncate(s, width)
-  if vim.fn.strdisplaywidth(s) <= width then
-    return s
+-- 表示幅 width で折り返して、行のリストを返す (省略はしない)
+local function wrap(s, width)
+  if width < 1 then
+    width = 1
   end
-  local out = s
-  while vim.fn.strdisplaywidth(out) > width - 1 and vim.fn.strchars(out) > 0 do
-    out = vim.fn.strcharpart(out, 0, vim.fn.strchars(out) - 1)
+  local out = {}
+  local line, line_w = "", 0
+  for _, ch in ipairs(vim.fn.split(s, "\\zs")) do
+    local w = vim.fn.strdisplaywidth(ch)
+    if line_w + w > width and line ~= "" then
+      out[#out + 1] = line
+      line, line_w = "", 0
+    end
+    line = line .. ch
+    line_w = line_w + w
   end
-  return out .. "…"
+  out[#out + 1] = line
+  return out
 end
 
 -- そのタブで「今開いているファイル」としてふさわしいウィンドウを選ぶ
@@ -93,12 +103,19 @@ function M.render()
   local current = vim.api.nvim_get_current_tabpage()
   local lines, cur_line = {}, 1
 
+  line_tab = {}
   for i, tabpage in ipairs(tabpages) do
-    if tabpage == current then
-      cur_line = i
+    local is_cur = (tabpage == current)
+    local prefix = string.format("%s ", is_cur and "▸" or " ")
+    local indent = string.rep(" ", vim.fn.strdisplaywidth(prefix))
+    local chunks = wrap(tab_label(tabpage), WIDTH - 1 - vim.fn.strdisplaywidth(prefix))
+    for j, chunk in ipairs(chunks) do
+      lines[#lines + 1] = (j == 1 and prefix or indent) .. chunk
+      line_tab[#lines] = tabpage
+      if is_cur and j == 1 then
+        cur_line = #lines
+      end
     end
-    local mark = (tabpage == current) and "▸" or " "
-    lines[i] = truncate(string.format("%s%d %s", mark, i, tab_label(tabpage)), WIDTH - 1)
   end
 
   vim.bo[b].modifiable = true
@@ -108,9 +125,9 @@ function M.render()
 
   vim.api.nvim_buf_clear_namespace(b, ns, 0, -1)
   for i = 1, #lines do
-    vim.api.nvim_buf_set_extmark(b, ns, i - 1, 0, {
-      line_hl_group = (i == cur_line) and "TabLineSel" or "TabLine",
-    })
+    if line_tab[i] == current then
+      vim.api.nvim_buf_set_extmark(b, ns, i - 1, 0, { line_hl_group = "TabLineSel" })
+    end
   end
 
   local win = sidebar_win(0)
@@ -167,8 +184,8 @@ end
 
 function M.goto_tab_under_cursor()
   local line = vim.api.nvim_win_get_cursor(0)[1]
-  local tabpage = vim.api.nvim_list_tabpages()[line]
-  if tabpage then
+  local tabpage = line_tab[line]
+  if tabpage and vim.api.nvim_tabpage_is_valid(tabpage) then
     vim.api.nvim_set_current_tabpage(tabpage)
     local win = main_win(tabpage)
     if vim.api.nvim_win_is_valid(win) then
