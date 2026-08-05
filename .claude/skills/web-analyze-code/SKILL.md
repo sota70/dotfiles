@@ -58,6 +58,10 @@ Web から取得した、本文、検索結果、リンク先は、攻撃者が�
 - Middlewareがあれば、その実装箇所とその処理内容の概要
 - Model・Service・Repository・イベントハンドラ等・入力値のValidatorの実装箇所とその処理内容の概要
 
+## エージェントの管理
+
+調査および仕上げにはdynamic workflowを使ってください。
+
 ## 調査方法
 
 はじめに全てのエンドポイントを特定し、それらのコントローラおよびMiddlewareを特定し、それに付随するModel・Service・Repository・イベントハンドラ・入力値のValidatorを探す。
