@@ -33,6 +33,7 @@ import zlib
 from http.cookiejar import Cookie, CookieJar
 from pathlib import Path
 
+from .dom import parse_html as _parse_html
 from .flag import find_flg as _find_flg
 
 __all__ = [
@@ -114,6 +115,7 @@ class Response:
         self.content = content
         self.method = method
         self.elapsed = elapsed
+        self._dom = None               # filled in on the first .dom() call
 
     # ``status_code`` is the name requests uses -- accept both.
     @property
@@ -160,6 +162,28 @@ class Response:
     def find_flg(self, fmt=None, **kwargs):
         """Search the body for a flag -- see :func:`ctflib.find_flg`."""
         return _find_flg(self.text, fmt, **kwargs)
+
+    def dom(self):
+        """Parse the body as HTML -- see :func:`ctflib.dom.parse_html`.
+
+        Parsed once and memoised, so ``r.dom()`` is cheap to call repeatedly.
+        """
+        if self._dom is None:
+            self._dom = _parse_html(self.text)
+        return self._dom
+
+    def query_selector(self, selector):
+        """First element in the body matching a CSS *selector* (``None`` if none)."""
+        return self.dom().query_selector(selector)
+
+    def query_selector_all(self, selector):
+        """Every element in the body matching a CSS *selector*, in document order."""
+        return self.dom().query_selector_all(selector)
+
+    @property
+    def forms(self):
+        """The ``<form>`` elements in the body as :class:`~ctflib.dom.Form` objects."""
+        return self.dom().forms
 
     def __contains__(self, needle):
         if isinstance(needle, bytes):
