@@ -1,0 +1,4 @@
+interface:
+  display_name: "技術日本語ライティング"
+  short_description: "技術文書の自然で正確な日本語による作成と推敲を支援します"
+  default_prompt: "$write-technical-japanese を使って、この技術文書を簡潔で自然な日本語に整えてください。"
