@@ -36,7 +36,18 @@ _STATUS_TEXT = {
 
 
 class Request:
-    """The ``req`` argument handed to a controller."""
+    """The ``req`` argument handed to a controller.
+
+    Example:
+        >>> app.log = False                     # keep the doctest output clean
+        >>> _ = route("/echo", lambda req, res: res.json(
+        ...     {"method": req.method, "path": req.path, "q": req.query}))
+        >>> _ = listen(port=0, background=True, quiet=True)
+        >>> from ctflib import get
+        >>> get("http://127.0.0.1:%d/echo?id=7" % app.port).json()
+        {'method': 'GET', 'path': '/echo', 'q': {'id': '7'}}
+        >>> app.close()
+    """
 
     def __init__(self, handler, body, params=None):
         self.raw = handler
@@ -88,7 +99,20 @@ class Request:
 
 
 class Response:
-    """The ``res`` argument handed to a controller. Setters are chainable."""
+    """The ``res`` argument handed to a controller. Setters are chainable.
+
+    Example:
+        >>> app.log = False
+        >>> @route("/admin")
+        ... def admin(req, res):
+        ...     res.status(403).set("X-Flag", "sknb{x}").text("denied")
+        >>> _ = listen(port=0, background=True, quiet=True)
+        >>> from ctflib import get
+        >>> r = get("http://127.0.0.1:%d/admin" % app.port)
+        >>> r.status, r.text, r.headers["x-flag"]
+        (403, 'denied', 'sknb{x}')
+        >>> app.close()
+    """
 
     def __init__(self, handler):
         self.raw = handler
@@ -205,7 +229,21 @@ def _endpoint_from(controller):
 
 
 class App:
-    """Route table + server. Create your own, or use the module level default."""
+    """Route table + server. Create your own, or use the module level default.
+
+    Example:
+        >>> my = App(log=False)
+        >>> @my.route("/hook")
+        ... def hook(req, res):
+        ...     res.json({"seen": req.query.get("id")})
+        >>> _ = my.listen(port=0, background=True, quiet=True)
+        >>> from ctflib import get
+        >>> get("http://127.0.0.1:%d/hook?id=7" % my.port).json()
+        {'seen': '7'}
+        >>> len(my.hits)
+        1
+        >>> my.close()
+    """
 
     def __init__(self, log=True):
         self.routes = []
@@ -394,7 +432,21 @@ app = App()
 
 
 def route(endpoint=None, controller=None, methods=None):
-    """Bind a controller on the default app -- ``@route("/x")`` or ``route("/x", fn)``."""
+    """Bind a controller on the default app -- ``@route("/x")`` or ``route("/x", fn)``.
+
+    See :meth:`App.route` for the endpoint patterns.
+
+    Example:
+        >>> app.log = False
+        >>> @route("/hook")
+        ... def hook(req, res):
+        ...     res.text("pong")
+        >>> _ = listen(port=0, background=True, quiet=True)
+        >>> from ctflib import get
+        >>> get("http://127.0.0.1:%d/hook" % app.port).text
+        'pong'
+        >>> app.close()
+    """
     return app.route(endpoint, controller, methods)
 
 
@@ -407,13 +459,53 @@ def post(endpoint=None, controller=None):
 
 
 def listen(port=8000, host="0.0.0.0", background=False, quiet=False):
-    """Start the default app's server."""
+    """Start the default app's server.
+
+    Blocks until Ctrl-C unless ``background=True``. ``port=0`` picks a free
+    port, which ``app.port`` reads back.
+
+    Example:
+        >>> _ = listen(port=0, background=True, quiet=True)
+        >>> isinstance(app.port, int)
+        True
+        >>> app.close()
+
+    In a challenge you normally want the blocking form on a port the target can
+    reach::
+
+        listen(8000)
+    """
     return app.listen(port, host, background, quiet)
 
 
 def hits():
+    """Every request the default app has served, oldest first.
+
+    Example:
+        >>> app.log = False
+        >>> _ = route("/beacon", lambda req, res: res.text("ok"))
+        >>> _ = listen(port=0, background=True, quiet=True)
+        >>> from ctflib import get
+        >>> _ = get("http://127.0.0.1:%d/beacon?id=7" % app.port)
+        >>> hits()[-1].query
+        {'id': '7'}
+        >>> app.close()
+    """
     return app.hits
 
 
 def wait_hit(timeout=None, since=None):
+    """Block until the default app gets a new request -- see :meth:`App.wait_hit`.
+
+    Example:
+        >>> import threading
+        >>> from ctflib import get
+        >>> app.log = False
+        >>> _ = route("/x", lambda req, res: res.text("ok"))
+        >>> _ = listen(port=0, background=True, quiet=True)
+        >>> threading.Timer(0.05, get, ["http://127.0.0.1:%d/x" % app.port]).start()
+        >>> wait_hit(timeout=5).path
+        '/x'
+        >>> app.close()
+    """
     return app.wait_hit(timeout, since)

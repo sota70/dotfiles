@@ -28,18 +28,43 @@ _DEFAULT_FORMAT = os.environ.get("CTF_FLAG_FORMAT") or None
 
 
 def set_flag_format(fmt):
-    """Set the format used when :func:`find_flg` is called without one."""
+    """Set the format used when :func:`find_flg` is called without one.
+
+    Example:
+        >>> old = get_flag_format()
+        >>> set_flag_format("sknb{*}")
+        'sknb{*}'
+        >>> find_flg("x sknb{abc} y")            # no fmt= needed any more
+        'sknb{abc}'
+        >>> _ = set_flag_format(old)
+    """
     global _DEFAULT_FORMAT
     _DEFAULT_FORMAT = fmt
     return fmt
 
 
 def get_flag_format():
+    """Return the fallback format, or ``None`` when none is set.
+
+    Example:
+        >>> old = get_flag_format()
+        >>> _ = set_flag_format("sknb{*}")
+        >>> get_flag_format()
+        'sknb{*}'
+        >>> _ = set_flag_format(old)
+    """
     return _DEFAULT_FORMAT
 
 
 def format_to_regex(fmt, greedy=False, dotall=False):
-    """Compile a wildcard flag format into a regex."""
+    """Compile a wildcard flag format into a regex.
+
+    Example:
+        >>> format_to_regex("sknb{*}").search("x sknb{a} y").group(0)
+        'sknb{a}'
+        >>> format_to_regex("FLAG-??").search("FLAG-9z!").group(0)     # ? is one char
+        'FLAG-9z'
+    """
     star = ".*" if greedy else ".*?"
     out = []
     i = 0
@@ -80,6 +105,12 @@ def find_flg(s, fmt=None, *, greedy=False, dotall=False, default=None):
 
     *s* may be a string, bytes, a :class:`~ctflib.client.Response`, or a list of
     those. Returns *default* (``None``) when nothing matches.
+
+    Example:
+        >>> find_flg("Here is your flag: sknb{w3lc0me}", "sknb{*}")
+        'sknb{w3lc0me}'
+        >>> find_flg("nothing here", "sknb{*}", default="")
+        ''
     """
     fmt = fmt or _DEFAULT_FORMAT
     if not fmt:
@@ -89,7 +120,14 @@ def find_flg(s, fmt=None, *, greedy=False, dotall=False, default=None):
 
 
 def find_flgs(s, fmt=None, *, greedy=False, dotall=False, unique=True):
-    """Return every match of *fmt* in *s* (order preserved)."""
+    """Return every match of *fmt* in *s* (order preserved).
+
+    Example:
+        >>> find_flgs("sknb{a} sknb{b} sknb{a}", "sknb{*}")
+        ['sknb{a}', 'sknb{b}']
+        >>> find_flgs("sknb{a} sknb{a}", "sknb{*}", unique=False)
+        ['sknb{a}', 'sknb{a}']
+    """
     fmt = fmt or _DEFAULT_FORMAT
     if not fmt:
         raise ValueError("no flag format given -- pass fmt= or call set_flag_format()")

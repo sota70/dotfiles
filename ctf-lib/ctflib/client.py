@@ -53,7 +53,7 @@ __all__ = [
     "default_session",
 ]
 
-DEFAULT_USER_AGENT = "ctflib/1.0"
+DEFAULT_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:153.0) Gecko/20100101 Firefox/153.0"
 DEFAULT_TIMEOUT = 15
 
 # Methods that keep their body across a redirect (see _RedirectHandler).
@@ -65,6 +65,13 @@ class Headers(dict):
 
     Keys are stored lower-cased, so ``h["Content-Type"]`` and ``h["content-type"]``
     are the same entry.
+
+    Example:
+        >>> h = Headers({"Content-Type": "text/html"})
+        >>> h["content-type"]
+        'text/html'
+        >>> "CONTENT-TYPE" in h
+        True
     """
 
     def __init__(self, data=None):
@@ -105,7 +112,18 @@ class Headers(dict):
 
 
 class Response:
-    """Result of an HTTP request."""
+    """Result of an HTTP request.
+
+    Example:
+        >>> r = Response("http://target/x", 200, {"content-type": "text/html"},
+        ...              b"<b>sknb{a}</b>")
+        >>> r.ok, r.status_code
+        (True, 200)
+        >>> r.find_flg("sknb{*}")
+        'sknb{a}'
+        >>> r.query_selector("b").text          # the body is parsed on demand
+        'sknb{a}'
+    """
 
     def __init__(self, url, status, headers, content, method="GET", elapsed=0.0, reason=""):
         self.url = url
@@ -305,6 +323,14 @@ def encode_multipart(fields, boundary=None):
     """Encode *fields* as ``multipart/form-data``.
 
     Returns ``(body, content_type)``.
+
+    Example:
+        >>> body, ctype = encode_multipart({"f": ("shell.php", b"<?php ?>")},
+        ...                                boundary="B")
+        >>> ctype
+        'multipart/form-data; boundary=B'
+        >>> body.splitlines()[1]
+        b'Content-Disposition: form-data; name="f"; filename="shell.php"'
     """
     if boundary is None:
         boundary = "----ctflib" + os.urandom(12).hex()
@@ -461,7 +487,16 @@ def _merge_query(url, params):
 
 
 class Session:
-    """Keeps cookies, proxy and default headers across requests."""
+    """Keeps cookies, proxy and default headers across requests.
+
+    Example:
+        >>> s = Session(base_url=URL)           # URL: the doctest echo server
+        >>> s.get("/echo").text
+        'GET /echo'
+        >>> s.set_cookie("session", "abc")
+        >>> s.cookies
+        {'session': 'abc'}
+    """
 
     def __init__(self, base_url=None, headers=None, proxy=None, verify=False,
                  timeout=DEFAULT_TIMEOUT, user_agent=DEFAULT_USER_AGENT):
@@ -614,7 +649,15 @@ default_session = Session()
 
 
 def session(**kwargs):
-    """Create a new :class:`Session` (cookies isolated from the default one)."""
+    """Create a new :class:`Session` (cookies isolated from the default one).
+
+    Example:
+        >>> s = session(base_url=URL)
+        >>> s.get("/echo").status
+        200
+        >>> s.cookies                           # its own jar, nothing inherited
+        {}
+    """
     return Session(**kwargs)
 
 
@@ -624,33 +667,80 @@ def request(method, url, **kwargs):
     ``data=`` (url-encoded) / ``json=`` / ``form=`` (multipart, files included)
     set ``Content-Type`` automatically, ``proxy=`` routes the request through
     e.g. Burp.
+
+    Example:
+        >>> request("POST", URL + "/echo", data={"user": "admin"}).text.splitlines()
+        ['POST /echo', 'user=admin']
     """
     return default_session.request(method, url, **kwargs)
 
 
 def get(url, **kw):
+    """GET *url* on the default session -- see :func:`request` for the arguments.
+
+    Example:
+        >>> get(URL + "/echo", params={"a": "1 2"}).text
+        'GET /echo?a=1+2'
+    """
     return default_session.request("GET", url, **kw)
 
 
 def post(url, **kw):
+    """POST *url* on the default session -- see :func:`request` for the arguments.
+
+    Example:
+        >>> post(URL + "/echo", data={"user": "admin", "pw": "' OR 1--"}).text.splitlines()
+        ['POST /echo', 'user=admin&pw=%27+OR+1--']
+    """
     return default_session.request("POST", url, **kw)
 
 
 def put(url, **kw):
+    """PUT *url* on the default session -- see :func:`request`.
+
+    Example:
+        >>> put(URL + "/echo", data="raw").text.splitlines()
+        ['PUT /echo', 'raw']
+    """
     return default_session.request("PUT", url, **kw)
 
 
 def patch(url, **kw):
+    """PATCH *url* on the default session -- see :func:`request`.
+
+    Example:
+        >>> patch(URL + "/echo").text
+        'PATCH /echo'
+    """
     return default_session.request("PATCH", url, **kw)
 
 
 def delete(url, **kw):
+    """DELETE *url* on the default session -- see :func:`request`.
+
+    Example:
+        >>> delete(URL + "/echo").text
+        'DELETE /echo'
+    """
     return default_session.request("DELETE", url, **kw)
 
 
 def head(url, **kw):
+    """HEAD *url* on the default session -- headers only, no body.
+
+    Example:
+        >>> r = head(URL + "/echo")
+        >>> r.status, r.text
+        (200, '')
+    """
     return default_session.request("HEAD", url, **kw)
 
 
 def options(url, **kw):
+    """OPTIONS *url* on the default session -- see :func:`request`.
+
+    Example:
+        >>> options(URL + "/echo").text
+        'OPTIONS /echo'
+    """
     return default_session.request("OPTIONS", url, **kw)

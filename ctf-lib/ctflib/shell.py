@@ -58,6 +58,13 @@ def reverse_shell(port, host="0.0.0.0", *, timeout=None, upgrade=False, quiet=Fa
     draining output after you quit so the last command is not cut off.
 
     Returns ``True`` if a shell connected, ``False`` if it timed out.
+
+    This is the one function in the package with no runnable example: it blocks
+    in ``accept()`` and then reads your keyboard, so the doctest is skipped.
+
+    Example:
+        >>> reverse_shell(4444)  # doctest: +SKIP
+        True
     """
     conn = _accept(host, port, timeout, quiet)
     if conn is None:

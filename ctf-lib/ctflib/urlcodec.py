@@ -137,9 +137,11 @@ def _decode(value, keep, strict, errors):
 def encode_uri_component(s):
     """JS ``encodeURIComponent`` -- escape everything but ``A-Za-z0-9-_.!~*'()``.
 
-    This is the one you want for a value going into a query string or a cookie::
+    This is the one you want for a value going into a query string or a cookie.
 
-        encode_uri_component("a b&c=d/e")   # -> 'a%20b%26c%3Dd%2Fe'
+    Example:
+        >>> encode_uri_component("a b&c=d/e")
+        'a%20b%26c%3Dd%2Fe'
     """
     return _encode(s, _COMPONENT_TABLE)
 
@@ -147,15 +149,24 @@ def encode_uri_component(s):
 def encode_uri(s):
     """JS ``encodeURI`` -- like :func:`encode_uri_component` but ``;/?:@&=+$,#`` survive.
 
-    For escaping a whole URL whose structure you want to keep::
+    For escaping a whole URL whose structure you want to keep.
 
-        encode_uri("http://x/a b?q=1&r=2")  # -> 'http://x/a%20b?q=1&r=2'
+    Example:
+        >>> encode_uri("http://x/a b?q=1&r=2")
+        'http://x/a%20b?q=1&r=2'
     """
     return _encode(s, _URI_TABLE)
 
 
 def decode_uri_component(s, *, strict=False, errors="replace"):
-    """JS ``decodeURIComponent`` -- decode every percent escape."""
+    """JS ``decodeURIComponent`` -- decode every percent escape.
+
+    Example:
+        >>> decode_uri_component("a%20b%2Fc")
+        'a b/c'
+        >>> decode_uri_component("100%25 %zz")      # a broken escape stays put
+        '100% %zz'
+    """
     return _decode(s, frozenset(), strict, errors)
 
 
@@ -163,10 +174,13 @@ def decode_uri(s, *, strict=False, errors="replace"):
     """JS ``decodeURI`` -- decode everything except the reserved escapes.
 
     ``%23 %24 %26 %2B %2C %2F %3A %3B %3D %3F %40`` stay escaped, so decoding a
-    URL cannot invent a new path segment or parameter::
+    URL cannot invent a new path segment or parameter.
 
-        decode_uri("/a%20b%2Fc")            # -> '/a b%2Fc'
-        decode_uri_component("/a%20b%2Fc")  # -> '/a b/c'
+    Example:
+        >>> decode_uri("/a%20b%2Fc")
+        '/a b%2Fc'
+        >>> decode_uri_component("/a%20b%2Fc")
+        '/a b/c'
     """
     return _decode(s, _KEEP_ESCAPED, strict, errors)
 
@@ -205,10 +219,13 @@ def urlencode(data, *, doseq=True, safe="", plus=True):
     byte for byte, because a padding-oracle blob is not UTF-8 and must not be
     "repaired". ``plus=True`` (the default, form style) encodes a space as
     ``+``, ``plus=False`` as ``%20``. List values repeat the key while
-    ``doseq`` is on::
+    ``doseq`` is on.
 
-        urlencode({"a": 1, "b": ["x", "y z"]})  # -> 'a=1&b=x&b=y+z'
-        urlencode(b"sig=\\xde\\xad")             # -> b'sig=\\xde\\xad'
+    Example:
+        >>> urlencode({"a": 1, "b": ["x", "y z"]})
+        'a=1&b=x&b=y+z'
+        >>> urlencode(b"sig=\\xde\\xad")            # bytes pass through untouched
+        b'sig=\\xde\\xad'
     """
     if isinstance(data, str):
         return data
@@ -224,10 +241,13 @@ def parse_qsl(s, *, sep="&", eq="=", plus=True, strip_q=True):
     A leading ``?`` is ignored, ``+`` means space unless ``plus=False``, and a
     key with no ``=`` yields an empty value. Pass ``strip_q=False`` when *s* is
     an already-split ``.query`` -- a URL with ``??`` really does start its first
-    name with a ``?``::
+    name with a ``?``.
 
-        parse_qsl("?a=1")                    # -> [('a', '1')]   pasted tail
-        parse_qsl("?a=1", strip_q=False)     # -> [('?a', '1')]  split query
+    Example:
+        >>> parse_qsl("?a=1")                   # pasted tail
+        [('a', '1')]
+        >>> parse_qsl("?a=1", strip_q=False)    # already-split query
+        [('?a', '1')]
     """
     text = _strip_q(s) if strip_q else _as_text(s)
     out = []
@@ -246,9 +266,11 @@ def _qs_decode(part, plus):
 def parse_qs(s, *, sep="&", eq="=", plus=True, strip_q=True):
     """Query string -> ``{key: [value, ...]}`` keeping every repeat.
 
-        parse_qs("a=1&a=2&b=")   # -> {'a': ['1', '2'], 'b': ['']}
-
     ``strip_q`` is :func:`parse_qsl`'s.
+
+    Example:
+        >>> parse_qs("a=1&a=2&b=")
+        {'a': ['1', '2'], 'b': ['']}
     """
     out = {}
     for key, value in parse_qsl(s, sep=sep, eq=eq, plus=plus, strip_q=strip_q):
@@ -259,7 +281,9 @@ def parse_qs(s, *, sep="&", eq="=", plus=True, strip_q=True):
 def urldecode(s, *, sep="&", eq="=", plus=True, strip_q=True):
     """Query string -> a flat ``{key: value}`` dict, last repeat wins.
 
-        urldecode("a=1&a=2&b=")  # -> {'a': '2', 'b': ''}
+    Example:
+        >>> urldecode("a=1&a=2&b=")
+        {'a': '2', 'b': ''}
     """
     return dict(parse_qsl(s, sep=sep, eq=eq, plus=plus, strip_q=strip_q))
 
@@ -278,11 +302,12 @@ def stringify(obj, sep="&", eq="="):
     """Node's ``querystring.stringify`` -- component-escaped, so a space is ``%20``.
 
     ``None`` becomes an empty value, booleans become ``true``/``false``, and a
-    list repeats its key::
+    list repeats its key. Use :func:`urlencode` instead when you want the ``+``
+    form encoding.
 
-        stringify({"a": "1 2", "b": [1, 2], "c": None})  # -> 'a=1%202&b=1&b=2&c='
-
-    Use :func:`urlencode` instead when you want the ``+`` form encoding.
+    Example:
+        >>> stringify({"a": "1 2", "b": [1, 2], "c": None})
+        'a=1%202&b=1&b=2&c='
     """
     parts = []
     for key, value in _items(obj):
@@ -296,11 +321,13 @@ def stringify(obj, sep="&", eq="="):
 def parse(s, sep="&", eq="=", *, strip_q=True):
     """Node's ``querystring.parse`` -- repeated keys collapse into a list.
 
-        parse("a=1&b=2&b=3")   # -> {'a': '1', 'b': ['2', '3']}
-
     Unlike Node a leading ``?`` is ignored -- ``strip_q=False`` for Node's own
     behaviour. Prefer :func:`parse_qs` when you want every value to be a list
     regardless.
+
+    Example:
+        >>> parse("a=1&b=2&b=3")
+        {'a': '1', 'b': ['2', '3']}
     """
     out = {}
     for key, values in parse_qs(s, sep=sep, eq=eq, strip_q=strip_q).items():
@@ -317,6 +344,12 @@ def form_encode(s, *, plus=False):
 
     Same safe set as :func:`encode_uri_component`, so a space is ``%20``; pass
     ``plus=True`` for the HTML-form flavour where a space is ``+``.
+
+    Example:
+        >>> form_encode("a b")
+        'a%20b'
+        >>> form_encode("a b", plus=True)
+        'a+b'
     """
     out = encode_uri_component(s)
     return out.replace("%20", "+") if plus else out
@@ -326,6 +359,12 @@ def form_decode(s, *, plus=False, strict=False, errors="replace"):
     """Node's ``querystring.unescape`` (renamed, see :func:`form_encode`).
 
     ``plus=True`` also turns ``+`` back into a space, like a form body.
+
+    Example:
+        >>> form_decode("a%20b")
+        'a b'
+        >>> form_decode("a+b", plus=True)
+        'a b'
     """
     if plus:
         s = _as_text(s).replace("+", " ")
@@ -339,7 +378,9 @@ def form_decode(s, *, plus=False, strict=False, errors="replace"):
 def double_encode(s):
     """:func:`encode_uri_component` applied twice -- the classic filter bypass.
 
-        double_encode("../")   # -> '..%252F'
+    Example:
+        >>> double_encode("../")
+        '..%252F'
     """
     return encode_uri_component(encode_uri_component(s))
 
@@ -347,7 +388,9 @@ def double_encode(s):
 def decode_all(s, *, max_rounds=5):
     """Percent-decode until the string stops changing (or *max_rounds* is hit).
 
-        decode_all("%25252e%25252e%25252f")   # -> '../'
+    Example:
+        >>> decode_all("%25252e%25252e%25252f")
+        '../'
     """
     text = _as_text(s)
     for _ in range(max(0, max_rounds)):
@@ -361,7 +404,9 @@ def decode_all(s, *, max_rounds=5):
 def url_join(base, url):
     """Resolve *url* against *base*, exactly like a browser follows a link.
 
-        url_join("http://x/a/b", "../c?d=1")   # -> 'http://x/c?d=1'
+    Example:
+        >>> url_join("http://x/a/b", "../c?d=1")
+        'http://x/c?d=1'
     """
     return urllib.parse.urljoin(_as_text(base), _as_text(url))
 
@@ -371,13 +416,15 @@ def url_parse(url):
 
     This is :func:`urllib.parse.urlsplit`, so ``.hostname``, ``.port``,
     ``.username`` and ``.password`` are there too, and ``._replace(...)`` plus
-    ``.geturl()`` put it back together::
+    ``.geturl()`` put it back together. ``.query`` has had its ``?`` removed
+    already, so pass ``strip_q=False`` to :func:`parse_qs` if the URL might
+    contain ``??``.
 
-        url_parse("http://a:b@x:8080/p?q=1#f").hostname   # -> 'x'
-        parse_qs(url_parse("/p?q=1").query)               # -> {'q': ['1']}
-
-    ``.query`` has had its ``?`` removed already, so pass ``strip_q=False`` to
-    :func:`parse_qs` if the URL might contain ``??``.
+    Example:
+        >>> url_parse("http://a:b@x:8080/p?q=1#f").hostname
+        'x'
+        >>> parse_qs(url_parse("/p?q=1").query)
+        {'q': ['1']}
     """
     return urllib.parse.urlsplit(_as_text(url))
 
@@ -385,7 +432,9 @@ def url_parse(url):
 def add_params(url, params):
     """Merge *params* into the query of *url*, keeping what is already there.
 
-        add_params("/x?a=1", {"b": "2 3"})   # -> '/x?a=1&b=2+3'
+    Example:
+        >>> add_params("/x?a=1", {"b": "2 3"})
+        '/x?a=1&b=2+3'
 
     Existing parameters are preserved even when a new one repeats the name, so
     this can also be used to smuggle a duplicate key. The query is already

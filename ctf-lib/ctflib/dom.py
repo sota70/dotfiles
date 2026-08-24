@@ -100,7 +100,18 @@ def _as_text(source):
 # --------------------------------------------------------------------------- #
 
 class Node:
-    """Base class for everything in the tree."""
+    """Base class for everything in the tree.
+
+    Example:
+        >>> doc = parse_html("<p>a<b>c</b></p>")
+        >>> p = doc.query_selector("p")
+        >>> p.child_nodes                       # text and comments included
+        [<Text 'a'>, <Element b children=0>]
+        >>> p.children                          # elements only
+        [<Element b children=0>]
+        >>> p.children[0].parent_element.tag_name
+        'p'
+    """
 
     node_type = None
 
@@ -188,7 +199,16 @@ def _element_sibling(node, step):
 
 
 class Text(Node):
-    """A run of character data."""
+    """A run of character data.
+
+    Example:
+        >>> doc = parse_html("<p>1 &lt; 2</p>")
+        >>> node = doc.query_selector("p").child_nodes[0]
+        >>> node.text
+        '1 < 2'
+        >>> node.outer_html                     # re-escaped on the way out
+        '1 &lt; 2'
+    """
 
     node_type = TEXT_NODE
 
@@ -221,7 +241,16 @@ class Text(Node):
 
 
 class Comment(Node):
-    """An ``<!-- ... -->`` node -- CTF flags live here more often than anywhere else."""
+    """An ``<!-- ... -->`` node -- CTF flags live here more often than anywhere else.
+
+    Example:
+        >>> doc = parse_html("<div><!-- sknb{in_comment} --></div>")
+        >>> node = doc.query_selector("div").child_nodes[0]
+        >>> node.text
+        ' sknb{in_comment} '
+        >>> node.outer_html
+        '<!-- sknb{in_comment} -->'
+    """
 
     node_type = COMMENT_NODE
 
@@ -253,7 +282,17 @@ class Comment(Node):
 
 
 class Element(Node):
-    """An HTML element: tag name, attributes and children."""
+    """An HTML element: tag name, attributes and children.
+
+    Example:
+        >>> doc = parse_html('<a class="admin" href="/adm">panel</a>')
+        >>> a = doc.query_selector("a.admin")
+        >>> a.get_attribute("href"), a.text
+        ('/adm', 'panel')
+        >>> a["href"] = "/x"                    # __setitem__ writes an attribute
+        >>> a.outer_html
+        '<a class="admin" href="/x">panel</a>'
+    """
 
     node_type = ELEMENT_NODE
 
@@ -522,7 +561,20 @@ def _collect_text(node, skip=()):
 # --------------------------------------------------------------------------- #
 
 class Form:
-    """A ``<form>``, with its current field values ready to POST back."""
+    """A ``<form>``, with its current field values ready to POST back.
+
+    Example:
+        >>> doc = parse_html('<form action="/login" method="post">'
+        ...                  '<input name="user" value="admin">'
+        ...                  '<input type="hidden" name="csrf" value="a1b2"></form>')
+        >>> form = doc.form()
+        >>> form.action, form.method
+        ('/login', 'POST')
+        >>> form.data                           # hidden fields kept
+        {'user': 'admin', 'csrf': 'a1b2'}
+        >>> form.fill(user="' OR 1--")          # a copy; the form is untouched
+        {'user': "' OR 1--", 'csrf': 'a1b2'}
+    """
 
     def __init__(self, element):
         self.element = element
@@ -654,7 +706,18 @@ def _select_value(select):
 # --------------------------------------------------------------------------- #
 
 class Document(Element):
-    """The root of a parsed page -- an :class:`Element` with page-level shortcuts."""
+    """The root of a parsed page -- an :class:`Element` with page-level shortcuts.
+
+    Example:
+        >>> doc = parse_html("<html><head><title>Login</title></head>"
+        ...                  "<body><!-- sknb{x} --><a href='/adm'>panel</a></body></html>")
+        >>> doc.title
+        'Login'
+        >>> doc.links
+        ['/adm']
+        >>> doc.comments
+        ['sknb{x}']
+    """
 
     node_type = DOCUMENT_NODE
 
@@ -798,6 +861,11 @@ def parse_html(source):
 
     *source* may be a str, bytes, or a Response-like object with a ``.text``
     attribute. Broken markup is fixed up rather than rejected -- this never raises.
+
+    Example:
+        >>> doc = parse_html("<p>hi<p>there")   # unclosed tags are fixed up
+        >>> [p.text for p in doc.get_elements_by_tag_name("p")]
+        ['hi', 'there']
     """
     if isinstance(source, Document):
         return source

@@ -95,6 +95,12 @@ def b64encode(data, *, urlsafe=False, padding=True, wrap=0):
     *data* may be str (utf-8), bytes, or a Response. ``urlsafe=True`` uses the
     ``-_`` alphabet, ``padding=False`` strips the trailing ``=``, and ``wrap=N``
     breaks the output into lines of *N* characters (``wrap=76`` for MIME).
+
+    Example:
+        >>> b64encode("admin")
+        'YWRtaW4='
+        >>> b64encode("~~~?", urlsafe=True, padding=False)
+        'fn5-Pw'
     """
     raw = _as_bytes(data)
     encoder = base64.urlsafe_b64encode if urlsafe else base64.b64encode
@@ -117,6 +123,16 @@ def b64decode(data, *, text=False, encoding="utf-8", errors="replace", strict=Fa
     ``strict=True`` skips every repair and raises :class:`ValueError` instead --
     the input must be one alphabet, correctly padded, with nothing else in it.
     ``text=True`` returns a str decoded with *encoding* / *errors*.
+
+    Example:
+        >>> b64decode("YWRtaW4")                # padding missing, re-padded
+        b'admin'
+        >>> b64decode("aGk_- !!", text=True)    # url-safe, spaces, junk
+        'hi?'
+        >>> b64decode("YWRtaW4", strict=True)
+        Traceback (most recent call last):
+            ...
+        ValueError: base64 length is not a multiple of 4 (missing padding?)
     """
     source = _as_text(data)
     if strict:
@@ -153,13 +169,23 @@ def _strict_decode(source):
 
 
 def b64decode_str(data, **kwargs):
-    """Same as :func:`b64decode` but always returns a str."""
+    """Same as :func:`b64decode` but always returns a str.
+
+    Example:
+        >>> b64decode_str("eyJ1c2VyIjoiYWRtaW4ifQ")
+        '{"user":"admin"}'
+    """
     kwargs["text"] = True
     return b64decode(data, **kwargs)
 
 
 def atob(s):
-    """Browser ``atob``: base64 in, latin-1 "binary string" out (forgiving)."""
+    """Browser ``atob``: base64 in, latin-1 "binary string" out (forgiving).
+
+    Example:
+        >>> atob("aGVsbG8=")
+        'hello'
+    """
     return b64decode(s, text=True, encoding="latin-1", errors="replace")
 
 
@@ -167,6 +193,14 @@ def btoa(s):
     """Browser ``btoa``: latin-1 "binary string" in, base64 out.
 
     Raises :class:`ValueError` on a code point above 255, like the browser does.
+
+    Example:
+        >>> btoa("hello")
+        'aGVsbG8='
+        >>> btoa(chr(256))
+        Traceback (most recent call last):
+            ...
+        ValueError: btoa: character out of latin-1 range (code point > 255)
     """
     if isinstance(s, (bytes, bytearray, memoryview)):
         return base64.b64encode(bytes(s)).decode("ascii")
@@ -180,12 +214,22 @@ def btoa(s):
 
 
 def b64url_encode(data):
-    """URL-safe, unpadded base64 -- the flavour used in JWTs and cookies."""
+    """URL-safe, unpadded base64 -- the flavour used in JWTs and cookies.
+
+    Example:
+        >>> b64url_encode('{"alg":"none"}')       # a JWT header
+        'eyJhbGciOiJub25lIn0'
+    """
     return b64encode(data, urlsafe=True, padding=False)
 
 
 def b64url_decode(data, **kwargs):
-    """Decode URL-safe base64 (padding optional) -- see :func:`b64decode`."""
+    """Decode URL-safe base64 (padding optional) -- see :func:`b64decode`.
+
+    Example:
+        >>> b64url_decode("eyJhbGciOiJub25lIn0", text=True)
+        '{"alg":"none"}'
+    """
     return b64decode(data, **kwargs)
 
 
@@ -199,6 +243,14 @@ def is_b64(s, *, urlsafe=None):
     ``urlsafe=None`` accepts either alphabet, ``True`` requires ``-_`` only and
     ``False`` requires ``+/`` only. Line wrapping is ignored, other whitespace
     is not.
+
+    Example:
+        >>> is_b64("YWRtaW4=")
+        True
+        >>> is_b64("fn5-Pw", urlsafe=False)     # '-' is not in the '+/' alphabet
+        False
+        >>> is_b64("hello world")
+        False
     """
     text = _WRAP_RE.sub("", _as_text(s).strip())
     if not text or len(text) % 4 == 1:
@@ -216,7 +268,14 @@ def is_b64(s, *, urlsafe=None):
 
 
 def b64_len(n, *, padding=True):
-    """Encoded length, in characters, of *n* raw bytes."""
+    """Encoded length, in characters, of *n* raw bytes.
+
+    Example:
+        >>> b64_len(10)
+        16
+        >>> b64_len(10, padding=False)
+        14
+    """
     if n < 0:
         raise ValueError("b64_len: n must be >= 0")
     if padding:
@@ -281,6 +340,10 @@ def b64decode_all(text, *, min_len=8):
     wrapping is undone first (as :func:`is_b64` does), so a MIME-wrapped blob
     decodes whole instead of one truncated piece per line. Results keep their
     order and are de-duplicated.
+
+    Example:
+        >>> b64decode_all("user: YWRtaW5pc3RyYXRvcg== flag: c2tuYnt0ZXN0fQ==")
+        [b'administrator', b'sknb{test}']
     """
     if min_len < 4:
         min_len = 4
