@@ -28,11 +28,14 @@ Skip blank lines, closing braces, repetitive formatting calls, and comments that
 
 1. Link or name the source and summarize the function in one or two sentences.
 2. Group important contiguous lines into small sections ordered exactly as they execute.
-3. Give each section a short purpose-based heading followed by a fenced code snippet copied from the source.
-4. Explain each important line or tight line range in one to three sentences. Start each note with its line number when known.
-5. When a call crosses into a helper that needs explanation, insert the helper as a separate section immediately after that call site, then resume the caller. Do not collect helper explanations at the end.
-6. End with a compact flow such as `validate → construct → delegate → return`.
-7. State in one sentence what was deliberately omitted.
+3. Give each section a short purpose-based heading, followed by the explanation, the source filename, and then a fenced code snippet copied from the source.
+4. Put every snippet's explanation before the snippet. Explain each important line or tight line range in one to three sentences, starting each note with its line number or range when known.
+5. Display the source filename immediately before every fenced code snippet.
+6. Show the real source line number on every line in each code snippet. Treat the number as a display prefix and preserve the source text after it exactly.
+7. If a snippet skips intervening source lines, insert an explicit `// ...` between the separated regions.
+8. When a call crosses into a helper that needs explanation, insert the helper as a separate section immediately after that call site, then resume the caller. Do not collect helper explanations at the end.
+9. End with a compact flow such as `validate → construct → delegate → return`.
+10. State in one sentence what was deliberately omitted.
 
 Use `// ...` only to mark an explicit omission; never make separated lines look contiguous. Keep helper explanations to the depth needed to understand the current function, linking to the helper rather than expanding into an unrelated walkthrough.
 
